@@ -1,0 +1,206 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>x2USDT Doubler</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
+    body {
+      background-color: #111;
+      color: #0ff;
+      font-family: 'Orbitron', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 60px;
+    }
+
+    button {
+      padding: 15px 25px;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #0ff;
+      color: #000;
+      border: none;
+      margin-top: 20px;
+      font-family: 'Orbitron', monospace;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    #queue {
+      margin-top: 30px;
+      max-width: 90%;
+      background-color: #000;
+      border: 1px solid #0ff;
+      padding: 15px;
+      color: #0ff;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .highlight {
+      color: violet;
+    }
+
+    #lang-switch {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #222;
+      color: #0ff;
+      border: 1px solid #0ff;
+      font-size: 14px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <button id="lang-switch" onclick="switchLanguage()">EN</button>
+  <h1 id="title">x2USDT Smart Doubler</h1>
+  <p id="description">Отправь 10 USDT — получи 20 USDT, когда зайдут 2 человека после тебя.</p>
+  <button onclick="connectWallet()" id="connectBtn">Подключить кошелёк</button>
+  <button onclick="join()" id="joinBtn">Войти за 10 USDT</button>
+  <div id="status">Ожидание подключения...</div>
+  <div id="queue">Загрузка очереди...</div>
+
+  <script>
+    const contractAddress = "PASTE_YOUR_CONTRACT_ADDRESS_HERE";
+    const usdtAddress = "0x55d398326f99059fF775485246999027B3197955";
+    const abi = [
+      {
+        "inputs": [],
+        "name": "join",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getQueueLength",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "name": "queue",
+        "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    let web3;
+    let contract;
+    let account;
+    let currentLang = 'ru';
+
+    const lang = {
+      ru: {
+        title: "x2USDT Smart Doubler",
+        description: "Отправь 10 USDT — получи 20 USDT, когда зайдут 2 человека после тебя.",
+        connectBtn: "Подключить кошелёк",
+        joinBtn: "Войти за 10 USDT",
+        connecting: "Ожидание подключения...",
+        success: "Успешный вход!",
+        error: "Ошибка: ",
+        queueLabel: "Очередь участников:\n",
+        queueError: "Ошибка загрузки очереди.",
+        langBtn: "EN"
+      },
+      en: {
+        title: "x2USDT Smart Doubler",
+        description: "Send 10 USDT — get 20 USDT when 2 people join after you.",
+        connectBtn: "Connect Wallet",
+        joinBtn: "Join with 10 USDT",
+        connecting: "Waiting for connection...",
+        success: "Join successful!",
+        error: "Error: ",
+        queueLabel: "Queue of participants:\n",
+        queueError: "Failed to load queue.",
+        langBtn: "RU"
+      }
+    };
+
+    function switchLanguage() {
+      currentLang = currentLang === 'ru' ? 'en' : 'ru';
+      const t = lang[currentLang];
+      document.getElementById("title").innerText = t.title;
+      document.getElementById("description").innerText = t.description;
+      document.getElementById("connectBtn").innerText = t.connectBtn;
+      document.getElementById("joinBtn").innerText = t.joinBtn;
+      document.getElementById("status").innerText = t.connecting;
+      document.getElementById("lang-switch").innerText = t.langBtn;
+      updateQueue();
+    }
+
+    async function connectWallet() {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          account = accounts[0];
+          contract = new web3.eth.Contract(abi, contractAddress);
+          document.getElementById("status").innerText = account;
+          updateQueue();
+        } catch (error) {
+          document.getElementById("status").innerText = lang[currentLang].error + error.message;
+        }
+      } else {
+        document.getElementById("status").innerText = "Install Metamask";
+      }
+    }
+
+    async function join() {
+      const amount = web3.utils.toWei("10", "ether");
+      const usdt = new web3.eth.Contract([
+        {
+          "constant": false,
+          "inputs": [
+            { "name": "spender", "type": "address" },
+            { "name": "value", "type": "uint256" }
+          ],
+          "name": "approve",
+          "outputs": [{ "name": "", "type": "bool" }],
+          "type": "function"
+        }
+      ], usdtAddress);
+
+      try {
+        await usdt.methods.approve(contractAddress, amount).send({ from: account });
+        await contract.methods.join().send({ from: account });
+        document.getElementById("status").innerText = lang[currentLang].success;
+        updateQueue();
+      } catch (error) {
+        document.getElementById("status").innerText = lang[currentLang].error + error.message;
+      }
+    }
+
+    async function updateQueue() {
+      try {
+        const length = await contract.methods.getQueueLength().call();
+        let result = lang[currentLang].queueLabel;
+        for (let i = 0; i < length; i++) {
+          const addr = await contract.methods.queue(i).call();
+          if (addr.toLowerCase() === account?.toLowerCase()) {
+            result += (i + 1) + ". " + "<span class='highlight'>" + addr + "</span>\n";
+          } else {
+            result += (i + 1) + ". " + addr + "\n";
+          }
+        }
+        document.getElementById("queue").innerHTML = result;
+      } catch (err) {
+        document.getElementById("queue").innerText = lang[currentLang].queueError;
+      }
+    }
+  </script>
+</body>
+</html>
